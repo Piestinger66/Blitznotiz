@@ -11,6 +11,12 @@ public enum ConnectionMode
     Server   // eigener Zbox-Server: Serverlink + App-Passwort
 }
 
+public enum TranscriptionEngine
+{
+    Cloud,  // Whisper über OpenAI bzw. eigenen Server
+    Local   // Parakeet Ultra offline auf diesem PC
+}
+
 public sealed class HotkeyConfig
 {
     // Tastennamen wie in KeyNames (z.B. "F9", "Pause", "Insert").
@@ -32,6 +38,7 @@ public sealed class Settings
     // Standard zurück auf whisper-1 (gleich schnell wie mini-transcribe, kein Wort-Auslassungs-Risiko);
     // mini/gpt-4o-transcribe bleiben als Auswahl im Einstellungsfenster.
     public string TranscriptionModel { get; set; } = "whisper-1";
+    public TranscriptionEngine TranscriptionEngine { get; set; } = TranscriptionEngine.Cloud;
     public string RewriteModel { get; set; } = Workflows.FastEditModel;
     public string CustomTerms { get; set; } = "";
     public string ImproveSystemPrompt { get; set; } = "";
@@ -65,11 +72,7 @@ public sealed class Settings
         try
         {
             if (File.Exists(FilePath))
-            {
-                var json = File.ReadAllText(FilePath);
-                var s = JsonSerializer.Deserialize<Settings>(json, JsonOpts);
-                if (s != null) return s;
-            }
+                return FromJson(File.ReadAllText(FilePath));
         }
         catch
         {
@@ -78,12 +81,16 @@ public sealed class Settings
         return new Settings();
     }
 
+    public static Settings FromJson(string json) =>
+        JsonSerializer.Deserialize<Settings>(json, JsonOpts) ?? new Settings();
+
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOpts);
+
     public void Save()
     {
         Directory.CreateDirectory(Dir);
-        var json = JsonSerializer.Serialize(this, JsonOpts);
         var tmp = FilePath + ".tmp";
-        File.WriteAllText(tmp, json);
+        File.WriteAllText(tmp, ToJson());
         File.Move(tmp, FilePath, overwrite: true);
     }
 }

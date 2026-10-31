@@ -15,6 +15,8 @@
     <Version>0.3.0</Version>
     <Product>Blitztext</Product>
     <Description>Sprache-zu-Text auf Knopfdruck.</Description>
+    <!-- Testprojekt liegt unterhalb des App-Ordners und darf nicht mitkompiliert werden. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +26,8 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.*" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+    <!-- Lokale Spracherkennung (Parakeet) ohne Cloud. -->
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="2.0.1" />
   </ItemGroup>
 
   <ItemGroup>

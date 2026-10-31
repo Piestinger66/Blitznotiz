@@ -85,6 +85,24 @@ used. Two cleanup buttons ("Delete used" / "Delete all"), each with a confirmati
 
 Secrets (key, app password) are stored encrypted in the Windows store (DPAPI), never in plain text.
 
+## Local speech recognition (Parakeet Ultra)
+
+Instead of cloud Whisper, speech can be recognized **offline on your own PC** with
+[Parakeet Ultra](https://moondream.ai/blog/introducing-parakeet-redux-and-ultra) via
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): free, private, 25 European languages.
+
+**Settings › Workflows › Speech recognition › "Lokal (Parakeet Ultra, offline)".**
+
+- **Verbatim** (`F9`) and verbatim notes then need **no key and no internet**.
+- **Improved, vent, emoji** still rewrite the text via OpenAI.
+- Custom words, language and transcription model only apply to cloud recognition.
+
+The model (~670 MB) is not bundled. Place it in
+`%LOCALAPPDATA%\Blitztext\models\parakeet-ultra-int8\` (`encoder.int8.onnx`, `decoder.int8.onnx`,
+`joiner.int8.onnx`, `tokens.txt`), e.g. from the int8 conversion
+[leogaudin/sherpa-onnx-nemo-parakeet-ultra-int8](https://huggingface.co/leogaudin/sherpa-onnx-nemo-parakeet-ultra-int8)
+(CC-BY-4.0). Recognition runs on the CPU, roughly 20× faster than real time on a current desktop.
+
 ## Install
 
 Download **`Blitznotiz.exe`** from the **[Releases](../../releases)** page and run it.

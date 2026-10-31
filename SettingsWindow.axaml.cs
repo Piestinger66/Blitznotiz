@@ -25,6 +25,8 @@ public partial class SettingsWindow : Window
     private readonly TextBox _openAiKeyBox;
     private readonly TextBox _serverUrlBox;
     private readonly TextBox _appPasswordBox;
+    private readonly ComboBox _engineBox;
+    private readonly TextBlock _engineInfo;
     private readonly ComboBox _transcriptionModelBox;
     private readonly ComboBox _rewriteModelBox;
     private readonly ComboBox _languageBox;
@@ -60,6 +62,8 @@ public partial class SettingsWindow : Window
         _openAiKeyBox = this.FindControl<TextBox>("OpenAiKeyBox")!;
         _serverUrlBox = this.FindControl<TextBox>("ServerUrlBox")!;
         _appPasswordBox = this.FindControl<TextBox>("AppPasswordBox")!;
+        _engineBox = this.FindControl<ComboBox>("EngineBox")!;
+        _engineInfo = this.FindControl<TextBlock>("EngineInfoText")!;
         _transcriptionModelBox = this.FindControl<ComboBox>("TranscriptionModelBox")!;
         _rewriteModelBox = this.FindControl<ComboBox>("RewriteModelBox")!;
         _languageBox = this.FindControl<ComboBox>("LanguageBox")!;
@@ -100,6 +104,10 @@ public partial class SettingsWindow : Window
         _serverUrlBox.Text = _initial.ServerUrl;
         _customTermsBox.Text = _initial.CustomTerms;
 
+        SelectByTag(_engineBox, _initial.TranscriptionEngine.ToString(), fallbackTag: nameof(TranscriptionEngine.Cloud));
+        _engineBox.SelectionChanged += (_, _) => UpdateEngineInfo();
+        UpdateEngineInfo();
+
         SelectByContent(_transcriptionModelBox, string.IsNullOrWhiteSpace(_initial.TranscriptionModel)
             ? Workflows.FallbackTranscriptionModel : _initial.TranscriptionModel);
         SelectByContent(_rewriteModelBox, string.IsNullOrWhiteSpace(_initial.RewriteModel)
@@ -125,6 +133,20 @@ public partial class SettingsWindow : Window
         SelectByTag(_panelSideBox, _initial.BlitzNotePanelSide ?? "right", fallbackTag: "right");
         InitHotkey(_hkNote, _initial.Hotkeys.Note);
         InitHotkey(_hkLibrary, _initial.Hotkeys.Library);
+    }
+
+    private bool IsLocalSelected => TagOf(_engineBox) == nameof(TranscriptionEngine.Local);
+
+    private void UpdateEngineInfo()
+    {
+        if (!IsLocalSelected)
+        {
+            _engineInfo.Text = "Sprache wird an OpenAI (bzw. deinen Server) geschickt und dort erkannt.";
+            return;
+        }
+        _engineInfo.Text = LocalModel.IsComplete(LocalModel.DefaultDir)
+            ? "✓ Modell gefunden. Erkennung läuft offline auf diesem PC, kostenlos. Umschreiben (verbessert, Dampf, Emoji) nutzt weiter OpenAI."
+            : "✗ Modell nicht gefunden in " + LocalModel.DefaultDir + " – siehe README.";
     }
 
     private async void OnBrowseRoot(object? sender, RoutedEventArgs e)
@@ -171,8 +193,15 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        if (IsLocalSelected && !LocalModel.IsComplete(LocalModel.DefaultDir))
+        {
+            ShowMessage("Lokale Erkennung gewählt, aber das Modell fehlt. Bitte Cloud wählen oder das Modell installieren.");
+            return;
+        }
+
         var s = new Settings
         {
+            TranscriptionEngine = IsLocalSelected ? TranscriptionEngine.Local : TranscriptionEngine.Cloud,
             Mode = isServer ? ConnectionMode.Server : ConnectionMode.OwnKey,
             ServerUrl = serverUrl,
             Language = TagOf(_languageBox) ?? "",

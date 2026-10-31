@@ -84,6 +84,15 @@
           <StackPanel Margin="12,16,12,16" Spacing="22">
 
             <StackPanel Spacing="8">
+              <TextBlock Classes="section-header" Text="SPRACHERKENNUNG" />
+              <ComboBox x:Name="EngineBox" MinWidth="280" HorizontalAlignment="Left">
+                <ComboBoxItem Content="Cloud (OpenAI Whisper)" Tag="Cloud" />
+                <ComboBoxItem Content="Lokal (Parakeet Ultra, offline)" Tag="Local" />
+              </ComboBox>
+              <TextBlock x:Name="EngineInfoText" Classes="meta" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
               <TextBlock Classes="section-header" Text="TRANSKRIPTIONS-MODELL" />
               <ComboBox x:Name="TranscriptionModelBox" MinWidth="280" HorizontalAlignment="Left">
                 <ComboBoxItem Content="whisper-1" />
@@ -91,7 +100,7 @@
                 <ComboBoxItem Content="gpt-4o-transcribe" />
               </ComboBox>
               <TextBlock Classes="meta" TextWrapping="Wrap"
-                         Text="whisper-1 ist der sichere Standard (zuverlässig bei Deutsch)." />
+                         Text="Nur bei Cloud-Erkennung. whisper-1 ist der sichere Standard (zuverlässig bei Deutsch)." />
             </StackPanel>
 
             <StackPanel Spacing="8">
@@ -137,7 +146,7 @@
               <TextBox x:Name="CustomTermsBox" AcceptsReturn="True" TextWrapping="Wrap"
                        Height="80" Watermark="Namen, Marken, Fachbegriffe (durch Komma getrennt)" />
               <TextBlock Classes="meta" TextWrapping="Wrap"
-                         Text="Hilft, Eigennamen korrekt zu schreiben." />
+                         Text="Hilft, Eigennamen korrekt zu schreiben (nur bei Cloud-Erkennung und beim Umschreiben)." />
             </StackPanel>
 
             <StackPanel Spacing="8">

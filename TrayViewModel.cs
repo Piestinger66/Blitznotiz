@@ -62,7 +62,8 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
         _hook.KeyPressed += OnKeyPressed;
         _hook.KeyReleased += OnKeyReleased;
 
-        Logger.Log($"Blitztext gestartet (Avalonia). Transkription={_settings.TranscriptionModel}, AutoPaste={_settings.AutoPaste}.");
+        Logger.Log($"Blitztext gestartet (Avalonia). Erkennung={_settings.TranscriptionEngine}, Transkription={_settings.TranscriptionModel}, AutoPaste={_settings.AutoPaste}.");
+        PreloadLocalModel();
 
         // Erststart-Hilfe: ohne hinterlegten Zugang sähe der Nutzer beim Tastendruck nichts.
         if (!IsConfigured())
@@ -71,6 +72,9 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private bool IsConfigured()
     {
+        // Lokal reicht das Modell für "wörtlich"; fürs Umschreiben meldet sich die Cloud-Prüfung beim Diktat.
+        if (_settings.TranscriptionEngine == TranscriptionEngine.Local)
+            return LocalModel.IsComplete(LocalModel.DefaultDir);
         if (_settings.Mode == ConnectionMode.Server)
             return !string.IsNullOrWhiteSpace(_settings.ServerUrl)
                 && !string.IsNullOrWhiteSpace(SecretStore.Load(SecretStore.AppPassword));
@@ -161,7 +165,7 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
             _cts = new CancellationTokenSource();
             _recorder.Start();
             Logger.Log($"Aufnahme gestartet (Modus {_activeKind}, Ziel-Fenster {_targetWindow}).");
-            WarmUpConnection();
+            if (TranscriptionPlan.NeedsCloud(_settings, _activeKind)) WarmUpConnection();
         }
         catch (Exception ex)
         {
@@ -169,6 +173,12 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
             Logger.Log("Mikrofon-Fehler: " + ex.Message);
             Toast.Show("Mikrofon-Fehler: " + ex.Message, ToastKind.Error);
         }
+    }
+
+    private void PreloadLocalModel()
+    {
+        if (_settings.TranscriptionEngine == TranscriptionEngine.Local && LocalModel.IsComplete(LocalModel.DefaultDir))
+            LocalTranscriber.Preload(LocalModel.DefaultDir);
     }
 
     private void WarmUpConnection()
@@ -202,21 +212,44 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
             capturedPath = path;
             if (IsStale(mySession, token)) return;
             var bytes = !string.IsNullOrEmpty(path) && File.Exists(path) ? new FileInfo(path).Length : 0;
-            Logger.Log($"Aufnahme gestoppt: {seconds:0.00}s, {bytes} Bytes, t={sw.ElapsedMilliseconds}ms.");
+            float peak = _recorder.MaxPeak;
+            Logger.Log($"Aufnahme gestoppt: {seconds:0.00}s, {bytes} Bytes, Pegel={peak:0.000}, t={sw.ElapsedMilliseconds}ms.");
 
-            if (string.IsNullOrEmpty(path) || seconds < 0.3) { Logger.Log("Verworfen: zu kurz/keine Datei."); return; }
+            if (string.IsNullOrEmpty(path) || seconds < 0.3)
+            {
+                Logger.Log("Verworfen: zu kurz/keine Datei.");
+                Toast.Show(DiscardHint.For(DiscardReason.TooShort, peak), ToastKind.Info);
+                return;
+            }
 
-            var (baseUrl, tokenValue, configError) = ResolveConnection(settings);
-            if (configError != null) { Logger.Log("Konfig: " + configError); Toast.Show(configError, ToastKind.Error); return; }
+            OpenAiClient? client = null;
+            if (TranscriptionPlan.NeedsCloud(settings, kind))
+            {
+                var (baseUrl, tokenValue, configError) = ResolveConnection(settings);
+                if (configError != null) { Logger.Log("Konfig: " + configError); Toast.Show(configError, ToastKind.Error); return; }
+                client = new OpenAiClient(baseUrl, tokenValue);
+            }
 
-            var client = new OpenAiClient(baseUrl, tokenValue);
-            string? whisperPrompt = seconds >= 0.9 ? Workflows.TranscriptionPrompt(settings) : null;
             var t0 = sw.ElapsedMilliseconds;
-            string transcript = await client.TranscribeAsync(path, settings.TranscriptionModel, whisperPrompt, settings.Language, token);
+            string transcript;
+            if (settings.TranscriptionEngine == TranscriptionEngine.Local)
+            {
+                transcript = await LocalTranscriber.TranscribeAsync(LocalModel.DefaultDir, path, token);
+            }
+            else
+            {
+                string? whisperPrompt = seconds >= 0.9 ? Workflows.TranscriptionPrompt(settings) : null;
+                transcript = await client!.TranscribeAsync(path, settings.TranscriptionModel, whisperPrompt, settings.Language, token);
+            }
             if (IsStale(mySession, token)) return;
-            Logger.Log($"Transkription erhalten: {transcript?.Trim().Length ?? 0} Zeichen, api={sw.ElapsedMilliseconds - t0}ms, t={sw.ElapsedMilliseconds}ms.");
+            Logger.Log($"Transkription erhalten ({settings.TranscriptionEngine}): {transcript?.Trim().Length ?? 0} Zeichen, dauer={sw.ElapsedMilliseconds - t0}ms, t={sw.ElapsedMilliseconds}ms.");
 
-            if (string.IsNullOrWhiteSpace(transcript) || IsLikelyArtifact(transcript, seconds)) { Logger.Log("Verworfen: leer/Artefakt."); return; }
+            if (string.IsNullOrWhiteSpace(transcript) || IsLikelyArtifact(transcript, seconds))
+            {
+                Logger.Log("Verworfen: leer/Artefakt.");
+                Toast.Show(DiscardHint.For(DiscardReason.NothingRecognized, peak), ToastKind.Info);
+                return;
+            }
 
             string result = transcript;
             if (Workflows.NeedsRewrite(kind))
@@ -225,7 +258,7 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
                 string model = string.IsNullOrWhiteSpace(settings.RewriteModel) ? Workflows.FastEditModel : settings.RewriteModel.Trim();
                 string systemPrompt = Workflows.BuildSystemPrompt(kind, settings);
                 t0 = sw.ElapsedMilliseconds;
-                result = await client.ChatAsync(model, systemPrompt, transcript, temperature, token);
+                result = await client!.ChatAsync(model, systemPrompt, transcript, temperature, token);
                 if (IsStale(mySession, token)) return;
                 Logger.Log($"Rewrite fertig: {result?.Trim().Length ?? 0} Zeichen, api={sw.ElapsedMilliseconds - t0}ms, t={sw.ElapsedMilliseconds}ms.");
             }
@@ -238,6 +271,11 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (OperationCanceledException) { Logger.Log("Abgebrochen (Esc/Timeout)."); }
         catch (OpenAiException ex) { Logger.Log("OpenAI-Fehler: " + ex.Message); }
+        catch (FileNotFoundException ex) when (settings.TranscriptionEngine == TranscriptionEngine.Local)
+        {
+            Logger.Log(ex.Message);
+            Toast.Show("Lokales Sprachmodell fehlt – siehe Einstellungen › Workflows.", ToastKind.Error);
+        }
         catch (Exception ex) { Logger.Log("Unerwarteter Fehler: " + ex.Message); }
         finally
         {
@@ -266,8 +304,22 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
+        // Erst einfügen, wenn die Ablage frei ist und noch unseren Text enthält (Win+V-Verlauf & Co.).
+        var waitSw = Stopwatch.StartNew();
+        bool clipFree = await Paster.WaitForClipboardFreeAsync(TimeSpan.FromMilliseconds(500));
+        bool clipOurs = clipFree && Paster.ClipboardContains(text);
+        if (clipFree && !clipOurs)
+        {
+            clipOurs = await Paster.TrySetClipboardAsync(text);
+            if (clipOurs) clipFree = await Paster.WaitForClipboardFreeAsync(TimeSpan.FromMilliseconds(500));
+        }
+        if (session != _session) return;
+
+        string focus = Paster.DescribeFocus(), modifiers = Paster.HeldModifiers();
         uint sent = Paster.SendCtrlV();
-        Logger.Log($"Einfügen: Ziel={targetWindow}, refokussiert={refocused}, FensterBeimEinfügen={fg}, SendInput={sent}");
+        Logger.Log($"Einfügen-Diagnose: Fokus={focus}, gedrückte Sondertasten={modifiers}");
+        Logger.Log($"Einfügen: Ziel={targetWindow}, refokussiert={refocused}, FensterBeimEinfügen={fg}, SendInput={sent}, " +
+                   $"AblageFrei={clipFree}, AblageUnserText={clipOurs}, gewartet={waitSw.ElapsedMilliseconds}ms");
         if (sent != 4) return;
 
         if (settings.ClearClipboardAfterPaste && settings.ClipboardClearSeconds > 0)
@@ -369,6 +421,7 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
             if (!win.Saved) return;
             _settings = Settings.Load();   // frische Werte (inkl. Geheimnisse separat über SecretStore)
             RebuildHotkeyMap();            // neue Hotkeys sofort aktiv, ohne Neustart
+            PreloadLocalModel();           // bei Wechsel auf "lokal" schon vor dem ersten Diktat laden
             _libraryWindow?.Close();       // öffnet beim nächsten Hotkey mit neuem Ordner/neuer Seite
             Logger.Log($"Einstellungen übernommen. Transkription={_settings.TranscriptionModel}, " +
                        $"Hotkeys {_settings.Hotkeys.Transcribe}/{_settings.Hotkeys.Improve}/" +

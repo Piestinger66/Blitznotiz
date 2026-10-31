@@ -85,6 +85,26 @@ mit Sicherheitsabfrage.
 
 Geheimnisse (Schlüssel, App-Passwort) liegen verschlüsselt im Windows-Speicher (DPAPI), nie im Klartext.
 
+## Lokale Spracherkennung (Parakeet Ultra)
+
+Statt Whisper in der Cloud kann die Sprache auch **offline auf dem eigenen PC** erkannt werden – mit
+[Parakeet Ultra](https://moondream.ai/blog/introducing-parakeet-redux-and-ultra) über
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). Kostenlos, privat, Deutsch und 24 weitere
+europäische Sprachen.
+
+**Einstellungen › Workflows › Spracherkennung › „Lokal (Parakeet Ultra, offline)“.**
+
+- **Wörtlich** (`F9`) und wörtliche Blitznotizen brauchen dann **keinen Schlüssel und kein Internet**.
+- **Verbessert, Dampf ablassen, Emoji** schreiben den Text weiterhin über OpenAI um.
+- „Eigene Wörter“, Sprache und Transkriptions-Modell gelten nur für die Cloud-Erkennung.
+
+Das Modell (~670 MB) wird nicht mitgeliefert. Es gehört nach
+`%LOCALAPPDATA%\Blitztext\models\parakeet-ultra-int8\` (Dateien `encoder.int8.onnx`,
+`decoder.int8.onnx`, `joiner.int8.onnx`, `tokens.txt`), z. B. aus der int8-Umwandlung
+[leogaudin/sherpa-onnx-nemo-parakeet-ultra-int8](https://huggingface.co/leogaudin/sherpa-onnx-nemo-parakeet-ultra-int8)
+(CC-BY-4.0). Die Erkennung läuft auf dem Prozessor; auf einem aktuellen Desktop-PC etwa 20× schneller
+als Echtzeit.
+
 ## Installation
 
 Fertige Anwendung: unter **[Releases](../../releases)** die **`Blitznotiz.exe`** herunterladen und starten.
@@ -99,6 +119,9 @@ Voraussetzung: .NET 9 SDK.
 ```powershell
 # Entwicklungs-Build
 dotnet build Blitztext.csproj -c Debug
+
+# Tests (der Erkennungstest läuft nur, wenn das lokale Modell installiert ist)
+dotnet test tests/Blitznotiz.Tests
 
 # Verteil-Build: eine einzige, eigenständige .exe
 dotnet publish Blitztext.csproj -c Release -r win-x64 --self-contained true `

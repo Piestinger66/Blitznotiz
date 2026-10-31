@@ -23,6 +23,24 @@ public static class Paster
         return false;
     }
 
+    /// <summary>
+    /// Wartet, bis kein anderer Prozess die Zwischenablage offen hält (z.B. der Win+V-Verlauf, der jede
+    /// neue Ablage kurz einliest). Sonst findet das Zielprogramm beim Strg+V eine gesperrte Ablage und
+    /// fügt still nichts ein. false = nach <paramref name="max"/> immer noch belegt.
+    /// </summary>
+    public static async Task<bool> WaitForClipboardFreeAsync(TimeSpan max)
+    {
+        var deadline = DateTime.UtcNow + max;
+        while (true)
+        {
+            if (OpenClipboard(IntPtr.Zero)) { CloseClipboard(); return true; }
+            if (DateTime.UtcNow >= deadline) return false;
+            await Task.Delay(10);
+        }
+    }
+
+    public static bool ClipboardContains(string text) => GetClipboardText() == text;
+
     public static async Task ClearIfUnchangedAsync(string text, TimeSpan delay)
     {
         if (string.IsNullOrEmpty(text)) return; // nie wegen "" == leerer/fremder Ablage löschen
@@ -96,6 +114,44 @@ public static class Paster
         SetForegroundWindow(target);
         return GetForegroundWindow() == target;
     }
+
+    // ── Diagnose: wohin geht die Tastatureingabe, welche Sondertasten sind gedrückt? ──
+    public static string DescribeFocus()
+    {
+        var fg = GetForegroundWindow();
+        uint tid = GetWindowThreadProcessId(fg, out _);
+        var info = new GUITHREADINFO { cbSize = Marshal.SizeOf<GUITHREADINFO>() };
+        if (!GetGUIThreadInfo(tid, ref info)) return "unbekannt";
+        var cls = new System.Text.StringBuilder(64);
+        GetClassName(info.hwndFocus, cls, cls.Capacity);
+        return $"{info.hwndFocus}[{cls}]";
+    }
+
+    public static string HeldModifiers()
+    {
+        var held = new System.Collections.Generic.List<string>();
+        if (GetAsyncKeyState(0x10) < 0) held.Add("Shift");
+        if (GetAsyncKeyState(0x11) < 0) held.Add("Strg");
+        if (GetAsyncKeyState(0x12) < 0) held.Add("Alt");
+        if (GetAsyncKeyState(0x5B) < 0 || GetAsyncKeyState(0x5C) < 0) held.Add("Win");
+        return held.Count == 0 ? "keine" : string.Join("+", held);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int left, top, right, bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GUITHREADINFO
+    {
+        public int cbSize, flags;
+        public IntPtr hwndActive, hwndFocus, hwndCapture, hwndMenuOwner, hwndMoveSize, hwndCaret;
+        public RECT rcCaret;
+    }
+
+    [DllImport("user32.dll")] private static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO info);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder name, int max);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
 
     // ── Strg+V simulieren --- Rückgabe = Zahl der eingespeisten Ereignisse (0 = blockiert) ──
     public static uint SendCtrlV()

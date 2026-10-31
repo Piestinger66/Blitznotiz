@@ -20,6 +20,8 @@ public sealed class Recorder : IDisposable
     private TaskCompletionSource<bool>? _stopped;
 
     public float PeakLevel { get; private set; }
+    /// <summary>Lautester Wert der ganzen Aufnahme (0..1) – zeigt, ob das Mikrofon überhaupt Ton hatte.</summary>
+    public float MaxPeak { get; private set; }
     public bool IsRecording => _waveIn != null;
 
     public static string TempDir => Path.Combine(Path.GetTempPath(), "Blitztext");
@@ -43,6 +45,7 @@ public sealed class Recorder : IDisposable
         _path = Path.Combine(TempDir, $"blitztext-{Guid.NewGuid():N}.wav");
         _bytesWritten = 0;
         PeakLevel = 0;
+        MaxPeak = 0;
 
         try
         {
@@ -79,14 +82,22 @@ public sealed class Recorder : IDisposable
         }
         catch { return; }
 
+        float max = PeakOf(e.Buffer, e.BytesRecorded);
+        PeakLevel = max;
+        if (max > MaxPeak) MaxPeak = max;
+    }
+
+    /// <summary>Größter Betrag in 16-bit-PCM (little-endian), normiert auf 0..1.</summary>
+    public static float PeakOf(byte[] buffer, int bytes)
+    {
         float max = 0f;
-        for (int i = 0; i + 1 < e.BytesRecorded; i += 2)
+        for (int i = 0; i + 1 < bytes; i += 2)
         {
-            short sample = (short)(e.Buffer[i] | (e.Buffer[i + 1] << 8));
-            float abs = Math.Abs(sample) / 32768f;
+            short sample = (short)(buffer[i] | (buffer[i + 1] << 8));
+            float abs = Math.Abs((int)sample) / 32768f; // int: Math.Abs(short.MinValue) würfe OverflowException
             if (abs > max) max = abs;
         }
-        PeakLevel = max;
+        return max;
     }
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)
