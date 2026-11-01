@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SherpaOnnx;
@@ -21,6 +23,44 @@ public static class LocalModel
 
     public static bool IsComplete(string dir) =>
         Directory.Exists(dir) && Array.TrueForAll(RequiredFiles, f => File.Exists(Path.Combine(dir, f)));
+
+    /// <summary>Was fehlt, samt Windows-Fehlercode – leer = vollständig. Fürs Protokoll, wenn
+    /// <see cref="IsComplete"/> überraschend false liefert (z.B. direkt nach der Anmeldung).</summary>
+    public static IReadOnlyList<string> Diagnose(string dir)
+    {
+        if (!Directory.Exists(dir))
+            return new[] { $"Ordner nicht erreichbar: {dir} ({Win32Status(dir)})" };
+        var problems = new List<string>();
+        foreach (var f in RequiredFiles)
+        {
+            var path = Path.Combine(dir, f);
+            if (!File.Exists(path)) problems.Add($"{f} nicht erreichbar ({Win32Status(path)})");
+        }
+        return problems;
+    }
+
+    /// <summary>Prüft wiederholt, bis das Modell auffindbar ist – beim Autostart kann das Dateisystem
+    /// in den ersten Sekunden nach der Anmeldung noch nicht bereit sein.</summary>
+    public static async Task<bool> WaitUntilCompleteAsync(string dir, int attempts, TimeSpan delay,
+        Func<string, bool>? check = null)
+    {
+        check ??= IsComplete;
+        for (int i = 1; i <= attempts; i++)
+        {
+            if (check(dir)) return true;
+            if (i < attempts) await Task.Delay(delay).ConfigureAwait(false);
+        }
+        return false;
+    }
+
+    private static string Win32Status(string path)
+    {
+        uint attrs = GetFileAttributes(path);
+        return attrs == uint.MaxValue ? $"Win32 {Marshal.GetLastWin32Error()}" : $"Win32 ok, Attribute 0x{attrs:X}";
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetFileAttributesW")]
+    private static extern uint GetFileAttributes(string path);
 }
 
 /// <summary>Entscheidet, welche Schritte eines Diktats die Cloud (OpenAI/Server) brauchen.</summary>
@@ -110,7 +150,7 @@ public static class LocalTranscriber
         {
             if (_recognizer != null && _loadedDir == dir) return _recognizer;
             if (!LocalModel.IsComplete(dir))
-                throw new FileNotFoundException("Lokales Sprachmodell nicht gefunden: " + dir);
+                throw new FileNotFoundException("Lokales Sprachmodell nicht gefunden: " + string.Join("; ", LocalModel.Diagnose(dir)));
 
             var config = new OfflineRecognizerConfig();
             config.ModelConfig.Transducer.Encoder = Path.Combine(dir, "encoder.int8.onnx");

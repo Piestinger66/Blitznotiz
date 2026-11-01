@@ -66,8 +66,12 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
         PreloadLocalModel();
 
         // Erststart-Hilfe: ohne hinterlegten Zugang sähe der Nutzer beim Tastendruck nichts.
+        // Lokales Modell erst eine Weile erneut suchen – direkt nach der Anmeldung war es schon unauffindbar.
         if (!IsConfigured())
-            Dispatcher.UIThread.Post(OpenSettings);
+        {
+            if (_settings.TranscriptionEngine == TranscriptionEngine.Local) _ = WaitForLocalModelAsync();
+            else Dispatcher.UIThread.Post(OpenSettings);
+        }
     }
 
     private bool IsConfigured()
@@ -173,6 +177,26 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
             Logger.Log("Mikrofon-Fehler: " + ex.Message);
             Toast.Show("Mikrofon-Fehler: " + ex.Message, ToastKind.Error);
         }
+    }
+
+    private async Task WaitForLocalModelAsync()
+    {
+        var dir = LocalModel.DefaultDir;
+        Logger.Log("Lokales Modell beim Start nicht gefunden: " + string.Join("; ", LocalModel.Diagnose(dir)) + " – suche erneut.");
+        var sw = Stopwatch.StartNew();
+        bool found = await LocalModel.WaitUntilCompleteAsync(dir, attempts: 12, TimeSpan.FromSeconds(5));
+        if (found)
+        {
+            Logger.Log($"Lokales Modell nach {sw.Elapsed.TotalSeconds:0} s gefunden.");
+            PreloadLocalModel();
+            return;
+        }
+        Logger.Log("Lokales Modell nach 1 Minute weiterhin nicht gefunden: " + string.Join("; ", LocalModel.Diagnose(dir)));
+        Dispatcher.UIThread.Post(() =>
+        {
+            Toast.Show("Lokales Sprachmodell nicht gefunden – bitte Einstellungen prüfen.", ToastKind.Error);
+            OpenSettings();
+        });
     }
 
     private void PreloadLocalModel()

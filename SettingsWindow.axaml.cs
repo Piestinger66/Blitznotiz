@@ -195,7 +195,10 @@ public partial class SettingsWindow : Window
 
         if (IsLocalSelected && !LocalModel.IsComplete(LocalModel.DefaultDir))
         {
-            ShowMessage("Lokale Erkennung gewählt, aber das Modell fehlt. Bitte Cloud wählen oder das Modell installieren.");
+            var problems = LocalModel.Diagnose(LocalModel.DefaultDir);
+            Logger.Log("Speichern blockiert, lokales Modell fehlt: " + string.Join("; ", problems));
+            ShowMessage("Lokale Erkennung gewählt, aber das Modell fehlt (" + string.Join("; ", problems) +
+                        "). Bitte Cloud wählen oder das Modell installieren.");
             return;
         }
 
