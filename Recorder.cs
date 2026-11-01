@@ -102,6 +102,8 @@ public sealed class Recorder : IDisposable
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)
     {
+        // Verspätetes Ende einer bereits zwangsweise geschlossenen Aufnahme darf die laufende nicht beenden.
+        if (sender != null && !ReferenceEquals(sender, _waveIn)) return;
         try
         {
             lock (_writerLock)
@@ -123,11 +125,44 @@ public sealed class Recorder : IDisposable
         if (_waveIn == null)
             return (_path ?? "", SecondsFromBytes(_bytesWritten));
 
+        var waveIn = _waveIn;
         _stopped = new TaskCompletionSource<bool>();
-        _waveIn.StopRecording();
-        await _stopped.Task.ConfigureAwait(true);
+        bool confirmed = await StopWithRetryAsync(() => waveIn.StopRecording(), _stopped.Task,
+            TimeSpan.FromMilliseconds(300), maxTries: 6);
+        if (!confirmed)
+        {
+            Logger.Log("Aufnahme reagierte nicht auf Stopp – wird zwangsweise geschlossen.");
+            ForceClose(waveIn);
+        }
         double seconds = SecondsFromBytes(_bytesWritten);
         return (_path ?? "", seconds);
+    }
+
+    /// <summary>
+    /// Stoppt und wiederholt den Stopp, bis <paramref name="stopped"/> bestätigt. Nötig wegen eines
+    /// NAudio-Wettlaufs: WaveInEvent startet seinen Aufnahme-Thread verzögert über den ThreadPool und
+    /// setzt dort den Zustand auf "Capturing" – ein vorher gesendeter Stopp wird so überschrieben und
+    /// die Aufnahme hinge für immer. false = auch nach <paramref name="maxTries"/> keine Bestätigung.
+    /// </summary>
+    public static async Task<bool> StopWithRetryAsync(Action stop, Task stopped, TimeSpan retryEvery, int maxTries)
+    {
+        for (int attempt = 1; attempt <= maxTries; attempt++)
+        {
+            if (attempt > 1) Logger.Log($"Stopp-Wiederholung {attempt}/{maxTries} (Aufnahme hatte nicht reagiert).");
+            try { stop(); }
+            catch (Exception ex) { Logger.Log("Stopp fehlgeschlagen: " + ex.Message); }
+            if (await Task.WhenAny(stopped, Task.Delay(retryEvery)) == stopped) return true;
+        }
+        return false;
+    }
+
+    private void ForceClose(WaveInEvent waveIn)
+    {
+        waveIn.DataAvailable -= OnDataAvailable;
+        waveIn.RecordingStopped -= OnRecordingStopped;
+        lock (_writerLock) { _writer?.Dispose(); _writer = null; }
+        try { waveIn.Dispose(); } catch { }
+        if (ReferenceEquals(_waveIn, waveIn)) _waveIn = null;
     }
 
     public void Cancel()
