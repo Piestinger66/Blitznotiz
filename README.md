@@ -138,13 +138,20 @@ the experimental macOS app by **Christoph Magnussen**. His project is explicitly
 exactly what happened here: a complete rebuild for Windows, with Blitznotiz as an idea of its own on top.
 Thank you for the inspiration and the open invitation. 🙏
 
+This repository builds on the Windows version
+**[Blitznotiz by Daniel Müller](https://github.com/danielstefanmueller/Blitznotiz)** and extends it with,
+among other things, local offline speech recognition.
+
 ## License
 
-MIT — see [LICENSE](LICENSE). The name and icon "Blitznotiz" are independent. The name "Blitztext", its
+MIT — see [LICENSE](LICENSE). Third-party content (test audio, optional speech model) is listed in
+[NOTICE.md](NOTICE.md). The name and icon "Blitznotiz" are independent. The name "Blitztext", its
 logo and brand belong to Christoph Magnussen / Blackboat and are named here only descriptively, to credit
 the original.
 
 ## A note on the app name
 
-The current program file still carries the internal development name "Blitztext". The public release is
-named **Blitznotiz**; a full internal rename is planned as a next step.
+Everything you see in the app says **Blitznotiz**. Internally the project file, the namespace and the
+build output (`Blitztext.exe`) still carry the development name "Blitztext"; the settings folder
+`%APPDATA%\Blitztext`, the model folder `%LOCALAPPDATA%\Blitztext` and the autostart entry keep that name
+on purpose, so existing installations keep their settings, key and model.

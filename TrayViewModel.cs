@@ -62,7 +62,7 @@ internal sealed class TrayViewModel : INotifyPropertyChanged, IDisposable
         _hook.KeyPressed += OnKeyPressed;
         _hook.KeyReleased += OnKeyReleased;
 
-        Logger.Log($"Blitztext gestartet (Avalonia). Erkennung={_settings.TranscriptionEngine}, Transkription={_settings.TranscriptionModel}, AutoPaste={_settings.AutoPaste}.");
+        Logger.Log($"Blitznotiz gestartet (Avalonia). Erkennung={_settings.TranscriptionEngine}, Transkription={_settings.TranscriptionModel}, AutoPaste={_settings.AutoPaste}.");
         PreloadLocalModel();
 
         // Erststart-Hilfe: ohne hinterlegten Zugang sähe der Nutzer beim Tastendruck nichts.

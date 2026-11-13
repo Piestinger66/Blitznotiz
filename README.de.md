@@ -143,14 +143,20 @@ gedacht — *„clone it, build it, read the code, change it, break it, fix it, 
 Genau das ist hier passiert: ein kompletter Neubau für Windows, mit Blitznotiz als eigener Idee obendrauf.
 Danke für die Inspiration und die offene Einladung. 🙏
 
+Dieses Repository baut auf der Windows-Fassung
+**[Blitznotiz von Daniel Müller](https://github.com/danielstefanmueller/Blitznotiz)** auf und erweitert sie
+unter anderem um eine lokale Offline-Spracherkennung.
+
 ## Lizenz
 
-MIT — siehe [LICENSE](LICENSE). Name und Icon „Blitznotiz" sind eigenständig. Der Name „Blitztext", dessen
+MIT — siehe [LICENSE](LICENSE). Inhalte von Drittanbietern (Testaudio, optionales Sprachmodell) stehen in
+[NOTICE.md](NOTICE.md). Name und Icon „Blitznotiz" sind eigenständig. Der Name „Blitztext", dessen
 Logo und Marke gehören Christoph Magnussen / Blackboat und werden hier nur beschreibend genannt, um das
 Original zu würdigen.
 
 ## Hinweis zum App-Namen
 
-Die aktuelle Programmdatei trägt aus der Entwicklung intern noch den Namen „Blitztext". Die öffentliche
-Veröffentlichung heißt **Blitznotiz**; eine vollständige interne Umbenennung ist als nächster Schritt
-vorgesehen.
+In der Oberfläche heißt die App durchgehend **Blitznotiz**. Intern tragen Projektdatei, Namespace und
+Build-Ergebnis (`Blitztext.exe`) noch den Entwicklungsnamen „Blitztext". Der Einstellungsordner
+`%APPDATA%\Blitztext`, der Modellordner `%LOCALAPPDATA%\Blitztext` und der Autostart-Eintrag behalten
+diesen Namen bewusst, damit bestehende Installationen Einstellungen, Schlüssel und Modell behalten.

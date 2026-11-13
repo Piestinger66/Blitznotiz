@@ -33,10 +33,10 @@ public static class Workflows
 
     public static string DisplayName(WorkflowKind kind) => kind switch
     {
-        WorkflowKind.Transcribe => "Blitztext (wörtlich)",
-        WorkflowKind.Improve => "Blitztext+ (geschrieben)",
-        WorkflowKind.Steam => "Blitztext (Dampf ablassen)",
-        WorkflowKind.Emoji => "Blitztext (Emoji)",
+        WorkflowKind.Transcribe => "Diktat (wörtlich)",
+        WorkflowKind.Improve => "Diktat+ (geschrieben)",
+        WorkflowKind.Steam => "Diktat (Dampf ablassen)",
+        WorkflowKind.Emoji => "Diktat (Emoji)",
         _ => kind.ToString()
     };
 

@@ -13,7 +13,7 @@
     <ApplicationIcon>Assets\blitztext-app.ico</ApplicationIcon>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Version>0.3.0</Version>
-    <Product>Blitztext</Product>
+    <Product>Blitznotiz</Product>
     <Description>Sprache-zu-Text auf Knopfdruck.</Description>
     <!-- Testprojekt liegt unterhalb des App-Ordners und darf nicht mitkompiliert werden. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);tests\**</DefaultItemExcludes>

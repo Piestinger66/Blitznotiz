@@ -14,7 +14,7 @@
 
     <Grid x:Name="TitleBar" DockPanel.Dock="Top" Height="40" ColumnDefinitions="*,Auto"
           Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
-      <TextBlock Classes="section-header" Text="BLITZTEXT" VerticalAlignment="Center" Margin="16,0,0,0" />
+      <TextBlock Classes="section-header" Text="BLITZNOTIZ" VerticalAlignment="Center" Margin="16,0,0,0" />
       <Button Grid.Column="1" Classes="chrome-close" Content="✕" Click="OnSecondary" />
     </Grid>
 

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Blitztext.SettingsWindow"
-        Title="Blitztext — Einstellungen"
+        Title="Blitznotiz — Einstellungen"
         Width="760" Height="660"
         MinWidth="660" MinHeight="560"
         WindowStartupLocation="CenterScreen"
@@ -15,7 +15,7 @@
     <!-- Eigene Titelleiste -->
     <Grid x:Name="TitleBar" DockPanel.Dock="Top" Height="40" ColumnDefinitions="*,Auto"
           Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
-      <TextBlock Classes="section-header" Text="BLITZTEXT" VerticalAlignment="Center" Margin="16,0,0,0" />
+      <TextBlock Classes="section-header" Text="BLITZNOTIZ" VerticalAlignment="Center" Margin="16,0,0,0" />
       <Button Grid.Column="1" Classes="chrome-close" Content="✕" Click="OnClose" />
     </Grid>
 
@@ -193,7 +193,7 @@
               </StackPanel>
             </StackPanel>
 
-            <CheckBox x:Name="LaunchAtLoginBox" Content="Blitztext mit Windows starten" />
+            <CheckBox x:Name="LaunchAtLoginBox" Content="Blitznotiz mit Windows starten" />
 
           </StackPanel>
         </ScrollViewer>
